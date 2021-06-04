@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . "/util.php";
+require_once __DIR__ . "/webInit.php";
 
 
 // js 함수 테스트
@@ -15,12 +15,15 @@ require_once __DIR__ . "/util.php";
 
 // getIntValueOr(21, 0);
 
-$loginId = "wayne10";
-$loginPw = "wayne10";
+
 
 $sql = DB__secSql();
-$sql->add("select * from member where loginId = ? ", $loginId);
-$sql->add("and loginPw = ?", $loginPw);
+$sql->add("select * from member");
+$sql->add("and userPass = ?");
 
 
-$member = DB__getRows2($sql);
+$members = DB__getRows($sql);
+
+foreach ($members as $member) {
+    echo $member ."<br>";
+}

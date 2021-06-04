@@ -1,146 +1,149 @@
 <?php
 
 class DB__SeqSql {
-    private string $templateStr = "";
-    private array $params = [];
+  private string $templateStr = "";
+  private array $params = [];
+
+  public function __toString(): string
+  {
+    $str = '[';
+    $str .= 'SQL=(' . $this->getTemplate() . ')';
+    $str .= ', PARAMS=(' . implode(',', $this->getParams()) . ')';
+    $str .= ']';
     
-    public function add(string $sqlBit, string $param = null) {
-        $this->templateStr .= " " . $sqlBit;
+    return $str;
+  }
 
-        if ($param) {
-            $this->params[] = $param;
-        }
+  public function add(string $sqlBit, string $param = null) {
+    $this->templateStr .= " " . $sqlBit;
+
+    if ( $param ) {
+      $this->params[] = $param;
+    }
+  }
+
+  public function getTemplate(): string {
+    return trim($this->templateStr);
+  }
+
+  public function getForBindParam1stArg(): string {
+    $paramTypesStr = "";
+
+    $count = count($this->params);
+
+    for ( $i = 0; $i < $count; $i++ ) {
+      $paramTypesStr .= "s";
     }
 
-    public function getTemplate() : string {
-        return $this->templateStr;
-    }
+    return $paramTypesStr;
+  }
 
-    public function getForBindParam1stArg() : string {
-        $paramTypesStr = "";
+  public function getParams(): array {
+    return $this->params;
+  }
 
-        $count = count($this->params);
-
-        for ($i = 0; $i < $count; $i++ ) {
-            $paramTypesStr .= "s";
-        }
-
-        return $paramTypesStr;
-    }
-
-    public function getParams() : array {
-        return $this->params;
-
-    }
-}
-
-function DB__getRow($sql) {
-
-    global $dbConn;
-    $rs = mysqli_query($dbConn, $sql);
-    $row = mysqli_fetch_assoc($rs);
-
-    return $row;
-}
-
-function DB__getRows($sql) : array {
-
-    global $dbConn;
-    $rs = mysqli_query($dbConn, $sql);
-
-    $array = [];
-    while (true) {
-        $row = mysqli_fetch_assoc($rs);
-
-        if ($row == null) {
-            break;
-        }
-
-        $array[] = $row;
-
-    } 
-    
-    return $array;
+  public function getParamsCount(): int {
+    return count($this->params);
+  }
 }
 
 function DB__secSql() {
-    return new DB__SeqSql();
+  return new DB__SeqSql();
 }
 
-function DB__getRows2(DB__SeqSql $sql) {
-    global $dbConn;
-
-    $stmt = $dbConn->prepare($sql->getTemplate());
-
-    
+function DB__getStmtFromSecSql(DB__SeqSql $sql): mysqli_stmt {
+  global $dbConn;
+  $stmt = $dbConn->prepare($sql->getTemplate());
+  if ( $sql->getParamsCount() ) {
     $stmt->bind_param($sql->getForBindParam1stArg(), ...$sql->getParams());
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    return $result->fetch_assoc();
+  }
+  
+  return $stmt;
 }
 
+function DB__getRow(DB__SeqSql $sql): array|null {
+  $rows = DB__getRows($sql);
 
-function DB__insert($sql) : int {
-    global $dbConn;
+  if ( isset($rows[0]) ) {
+    return $rows[0];
+  }
 
-    mysqli_query($dbConn, $sql);
-
-    return mysqli_insert_id($dbConn);
+  return null;
 }
 
-function DB__update($sql) {
-    global $dbConn;
+function DB__getRows(DB__SeqSql $sql): array {
+  $stmt = DB__getStmtFromSecSql($sql);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $rows = [];
 
-    mysqli_query($dbConn, $sql);
+  while ( $row = $result->fetch_assoc() ) {
+    $rows[] = $row;
+  }
+  
+  return $rows;
+}
 
+function DB__execute(DB__SeqSql $sql) {
+  $stmt = DB__getStmtFromSecSql($sql);
+  $stmt->execute();
+}
+
+function DB__insert(DB__SeqSql $sql): int {
+  global $dbConn;
+  DB__execute($sql);
+
+  return mysqli_insert_id($dbConn);
+}
+
+function DB__update(DB__SeqSql $sql) {
+  DB__execute($sql);
 }
 
 function DB__delete($sql) {
-    global $dbConn;
-
-    mysqli_query($dbConn, $sql);
+  DB__execute($sql);
 }
 
-function getIntValueOr($value, $defaultValue) {
-    if (isset($value)) {
-        return intval($value);
-    }
+function getIntValueOr(&$value, $defaultValue): int {
+  if ( isset($value) ) {
+    return intval($value);
+  }
 
-    return $defaultValue;
+  return $defaultValue;
 }
 
-function getStringValueOr($value, $defaultValue) {
-    if (isset($value)) {
-        return strval($value);
-    }
+function getStrValueOr(&$value, $defaultValue): string {
+  if ( isset($value) ) {
+    return strval($value);
+  }
 
-    return $defaultValue;
+  return $defaultValue;
 }
-
-// js관련 함수
 
 function jsAlert($msg) {
-    echo "<script>";
-    echo "alert('{$msg}');";
-    echo "</script>";
+  echo "<script>";
+  echo "alert('${msg}');";
+  echo "</script>";
 }
 
 function jsLocationReplaceExit($url, $msg = null) {
-    if ($msg != null) {
-        jsAlert($msg);
-    }
-    echo "<script>";
-    echo "location.replace('{$url}');";
-    echo "</script>";
+  if ( $msg ) {
+    jsAlert($msg);
+  }
+
+  echo "<script>";
+  echo "location.replace('${url}')";
+  echo "</script>";
+  exit;
 }
 
-function jsHistoryBack($msg = null) {
-    if ($msg != null) {
-        jsAlert($msg);
-    }
-    echo "<script>";
-    echo "history.back();";
-    echo "</script>";
-}
+function jsHistoryBackExit($msg = null) {
+  if ( $msg ) {
+    jsAlert($msg);
+  }
 
+  echo "<script>";
+  echo "history.back();";
+  echo "</script>";
+  exit;
+}
